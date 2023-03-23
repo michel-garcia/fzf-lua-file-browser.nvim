@@ -41,6 +41,9 @@ M.create = function (_, opts)
 end
 
 M.move = function (selected, opts)
+    if not next(selected) then
+        return browse(opts)
+    end
     if vim.fn.resolve(selected[1]) == ".." then
         return browse(opts)
     end
@@ -57,6 +60,9 @@ M.move = function (selected, opts)
 end
 
 M.delete = function (selected, opts)
+    if not next(selected) then
+        return browse(opts)
+    end
     if vim.fn.resolve(selected[1]) == ".." then
         return browse(opts)
     end
