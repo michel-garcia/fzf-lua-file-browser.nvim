@@ -57,8 +57,8 @@ M.actions = {
         if next(selected) then
             local path = Path(opts.cwd, selected[1])
             local prompt = string.format("Move %s to: ", path)
-            local ok, input = pcall(vim.fn.input, prompt, path)
-            if ok and input ~= "" and input ~= path then
+            local ok, input = pcall(vim.fn.input, prompt, tostring(path))
+            if ok and input ~= "" and input ~= tostring(path) then
                 if Path(input):exists() then
                     local message = string.format(
                         "%s already exists", input
