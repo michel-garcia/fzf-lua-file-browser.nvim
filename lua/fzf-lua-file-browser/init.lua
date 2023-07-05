@@ -1,27 +1,29 @@
+local Path = require("fzf-lua-file-browser.path")
+
 local M = {}
 
 local loaded = false
 
-M.sep = vim.loop.os_uname().sysname == "Windows" and "\\" or "/"
-
 M.actions = {
     edit_or_browse = function (selected, opts)
         if next(selected) then
-            local path = table.concat({ opts.cwd, selected[1] }, M.sep)
-            if vim.fn.isdirectory(path) == 0 then
-                vim.cmd.edit(path)
+            local path = Path(opts.cwd, selected[1])
+            if path:is_file() then
+                local filename = tostring(path)
+                vim.cmd.edit(filename)
                 return
             end
-            opts.cwd = path
+            opts.cwd = tostring(path)
         end
         M.browse(opts)
     end,
     go_to_parent = function (_, opts)
-        opts.cwd = vim.fn.fnamemodify(opts.cwd, ":h:p")
+        local path = Path(opts.cwd):parent()
+        opts.cwd = tostring(path)
         M.browse(opts)
     end,
     go_to_cwd = function (_, opts)
-        opts.cwd = vim.loop.cwd()
+        opts.cwd = tostring(Path.cwd())
         M.browse(opts)
     end,
     toggle_hidden = function (_, opts)
@@ -29,20 +31,19 @@ M.actions = {
         M.browse(opts)
     end,
     go_to_home = function (_, opts)
-        opts.cwd = vim.loop.os_homedir()
+        opts.cwd = tostring(Path.home())
         M.browse(opts)
     end,
     create = function (_, opts)
         local ok, input = pcall(vim.fn.input, "Enter filename: ")
         if ok and input ~= "" then
-            local path = table.concat({ opts.cwd, input }, M.sep)
-            if string.sub(path, -1) == "/" then
-                vim.loop.fs_mkdir(path, 448)
+            local path = Path(opts.cwd, input)
+            if path:exists() then
+                local message = string.format("%s already exists", path)
+                vim.notify(message, "error")
             else
-                local handle = vim.loop.fs_open(path, "w", 420)
-                if handle then
-                    vim.loop.fs_close(handle)
-                else
+                ok = path:create()
+                if not ok then
                     local message = string.format(
                         "Failed to create %s", input
                     )
@@ -54,16 +55,23 @@ M.actions = {
     end,
     rename = function (selected, opts)
         if next(selected) then
-            local path = table.concat({ opts.cwd, selected[1] }, M.sep)
+            local path = Path(opts.cwd, selected[1])
             local prompt = string.format("Move %s to: ", path)
             local ok, input = pcall(vim.fn.input, prompt, path)
-            if ok and input ~= "" then
-                ok = vim.loop.fs_rename(path, input)
-                if not ok then
+            if ok and input ~= "" and input ~= path then
+                if Path(input):exists() then
                     local message = string.format(
-                        "Failed to move %s", path
+                        "%s already exists", input
                     )
                     vim.notify(message, "error")
+                else
+                    ok = path:rename(input)
+                    if not ok then
+                        local message = string.format(
+                            "Failed to move %s", path
+                        )
+                        vim.notify(message, "error")
+                    end
                 end
             end
         end
@@ -71,15 +79,11 @@ M.actions = {
     end,
     delete = function (selected, opts)
         if next(selected) then
-            local path = table.concat({ opts.cwd, selected[1] }, M.sep)
+            local path = Path(opts.cwd, selected[1])
             local prompt = string.format("Delete %s? [y/n] ", path)
             local ok, input = pcall(vim.fn.input, prompt)
             if ok and input == "y" then
-                if vim.fn.isdirectory(path) == 0 then
-                    ok = vim.loop.fs_unlink(path)
-                else
-                    ok = vim.loop.fs_rmdir(path)
-                end
+                ok = path:delete()
                 if not ok then
                     local message = string.format(
                         "Failed to delete %s", path
