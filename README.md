@@ -50,20 +50,35 @@ Below is an example lua table of the available options and their respective defa
 
 ```lua
 {
+    -- action handlers
     actions = {
-        ["default"] = M.actions.edit_or_browse, -- edit file/browse directory
-        ["ctrl-g"] = M.actions.go_to_parent, -- go to parent
-        ["ctrl-w"] = M.actions.go_to_cwd, -- go to neovim cwd
-        ["ctrl-h"] = M.actions.toggle_hidden, -- toggle hidden
-        ["ctrl-e"] = M.actions.go_to_home, -- go to home
-        ["ctrl-a"] = M.actions.create, -- create file/directory
-        ["ctrl-r"] = M.actions.rename, -- rename file/directory
-        ["ctrl-x"] = M.actions.delete -- delete file/directory
+        ["default"] = M.actions.edit_or_browse,
+        ["ctrl-g"] = M.actions.go_to_parent,
+        ["ctrl-w"] = M.actions.go_to_cwd,
+        ["ctrl-h"] = M.actions.toggle_hidden,
+        ["ctrl-e"] = M.actions.go_to_home,
+        ["ctrl-a"] = M.actions.create,
+        ["ctrl-r"] = M.actions.rename,
+        ["ctrl-x"] = M.actions.delete
     },
-    cwd = nil, -- current working directory, pass nil to use current
-    hidden = false, -- whether or not to show hidden entries
-    no_header = true, -- hide relative cwd header
-    prompt = "File Browser> " -- prompt
+    -- whether or not to use colours to distinguish file types
+    colored = true,
+    -- current working directory, pass nil to use current
+    cwd = nil,
+    -- group directories first regardless of sort
+    group_directories_first = true,
+    -- whether or not to show hidden entries
+    hidden = false,
+    -- enable natural sort
+    natural_sort = true,
+    -- hide relative cwd header
+    no_header = true,
+    -- prompt
+    prompt = "File Browser> ",
+    -- reverse sort order
+    reverse = false,
+    -- sort, one of: name | none | size | time | version | extension | width
+    sort = "name"
 }
 ```
 

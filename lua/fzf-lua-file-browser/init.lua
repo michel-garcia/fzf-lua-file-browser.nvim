@@ -107,9 +107,14 @@ M.opts = {
         ["ctrl-r"] = M.actions.rename,
         ["ctrl-x"] = M.actions.delete
     },
+    colored = true,
+    group_directories_first = true,
     hidden = false,
+    natural_sort = true,
     no_header = true,
-    prompt = "File Browser> "
+    prompt = "File Browser> ",
+    reverse = false,
+    sort = "name"
 }
 
 M.setup = function (opts)
@@ -132,10 +137,36 @@ end
 M.browse = function (opts)
     local fzf = require("fzf-lua")
     opts = vim.tbl_deep_extend("force", M.opts, opts or {})
-    opts.cmd = "ls --almost-all --color=always --group-directories-first"
-    if not opts.hidden then
-        opts.cmd = "ls --color=always --group-directories-first"
+    local args = {}
+    if opts.colored then
+        table.insert(args, "--color=always")
     end
+    if opts.group_directories_first then
+        table.insert(args, "--group-directories-first")
+    end
+    if opts.hidden then
+        table.insert(args, "--almost-all")
+    end
+    if opts.natural_sort then
+        table.insert(args, "-v")
+    end
+    if opts.reverse then
+        table.insert(args, "--reverse")
+    end
+    if opts.sort ~= "name" then
+        local SORT = {
+            "none",
+            "size",
+            "time",
+            "version",
+            "extension",
+            "width"
+        }
+        if vim.tbl_contains(SORT, opts.sort) then
+            table.insert(args, string.format("--sort=%s", opts.sort))
+        end
+    end
+    opts.cmd = string.format("ls %s", table.concat(args, " "))
     opts.cwd = opts.cwd or vim.fn.expand("%:p:h") or vim.loop.cwd()
     fzf.files(opts)
 end
