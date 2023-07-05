@@ -28,7 +28,7 @@ end
 
 M.is_dir = function (self)
     if not self:exists() then
-        return vim.endswith(self.path, self.sep)
+        return vim.endswith(self.path, M.separator)
     end
     local stat = vim.loop.fs_stat(self.path)
     return stat.type == "directory"
