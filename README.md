@@ -52,17 +52,15 @@ Below is an example lua table of the available options and their respective defa
 {
     -- action handlers
     actions = {
-        ["default"] = M.actions.edit_or_browse,
-        ["ctrl-g"] = M.actions.go_to_parent,
-        ["ctrl-w"] = M.actions.go_to_cwd,
-        ["ctrl-h"] = M.actions.toggle_hidden,
-        ["ctrl-e"] = M.actions.go_to_home,
-        ["ctrl-a"] = M.actions.create,
-        ["ctrl-r"] = M.actions.rename,
-        ["ctrl-x"] = M.actions.delete
+        ["default"] = actions.edit_or_browse,
+        ["ctrl-g"] = actions.go_to_parent,
+        ["ctrl-w"] = actions.go_to_cwd,
+        ["ctrl-h"] = actions.toggle_hidden,
+        ["ctrl-e"] = actions.go_to_home,
+        ["ctrl-a"] = actions.create,
+        ["ctrl-r"] = actions.rename,
+        ["ctrl-x"] = actions.delete
     },
-    -- whether or not to use colours to distinguish file types
-    colored = true,
     -- current working directory, pass nil to use current
     cwd = nil,
     -- group directories first regardless of sort
@@ -71,13 +69,13 @@ Below is an example lua table of the available options and their respective defa
     hidden = false,
     -- enable natural sort
     natural_sort = true,
-    -- hide relative cwd header
-    no_header = true,
     -- prompt
     prompt = "File Browser> ",
     -- reverse sort order
     reverse = false,
-    -- sort, one of: name | none | size | time | version | extension | width
+    -- whether or not to show the cwd in the header
+    show_cwd_header = true,
+    -- sort, one of: name | width
     sort = "name"
 }
 ```
@@ -86,9 +84,10 @@ To customize the actions you may do the following:
 
 ```lua
 local file_browser = require("fzf-lua-file-browser")
+local actions = require("fzf-lua-file-browser.actions")
 file_browser.setup({
     actions = {
-        ["ctrl-l"] = file_browser.actions.rename,
+        ["ctrl-l"] = actions.rename,
         -- or even use your own callback
         ["ctrl-m"] = function (selected, opts)
             if next(selected) then
