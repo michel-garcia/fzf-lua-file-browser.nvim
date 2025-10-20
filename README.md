@@ -61,12 +61,14 @@ Below is an example lua table of the available options and their respective defa
         ["ctrl-d"] = actions.delete,
     },
     color_icons = true,
+    cwd_header = false,
+    cwd_prompt = true,
     dir_icon = "󰉋",
     dir_icon_hl = "Directory",
     file_icons = true,
-    hidden = false,
+    hidden = true,
     hijack_netrw = false,
-    show_cwd_header = true,
+    prompt = "> ",
 }
 ```
 
@@ -84,8 +86,8 @@ file_browser.setup({
                 print(selected[1])
             end
             file_browser.browse(opts) -- use this instruction to resume
-        end
-    }
+        end,
+    },
 }
 ```
 
