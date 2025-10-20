@@ -43,7 +43,7 @@ end
 M.toggle_hidden = function(_, opts)
     local browser = require("fzf-lua-file-browser")
     browser.state.hidden = not browser.state.hidden
-    browser.browse(vim.deepcopy(opts))
+    browser.browse(opts)
 end
 
 M.create = function(_, opts)
