@@ -78,12 +78,14 @@ M.opts = {
         ["ctrl-d"] = actions.delete,
     },
     color_icons = true,
+    cwd_header = false,
+    cwd_prompt = true,
     dir_icon = "󰉋",
     dir_icon_hl = "Directory",
     file_icons = true,
     hidden = true,
     hijack_netrw = false,
-    show_cwd_header = true,
+    prompt = "> ",
 }
 
 M.state = {
@@ -170,10 +172,15 @@ M.browse = function(opts)
         "--sync",
         "--bind change:first",
     }
-    if M.opts.show_cwd_header then
+    if M.opts.cwd_header then
         local path = vim.fn.pathshorten(M.state.cwd)
         local arg = string.format("--header=%s", path)
         table.insert(fzf_args, arg)
+    end
+    local prompt = M.opts.prompt
+    if M.opts.cwd_prompt then
+        local path = vim.fn.pathshorten(M.state.cwd)
+        prompt = string.format("%s/", path)
     end
     local items = M.get_items(M.state.cwd)
     M.state.files = {}
@@ -196,6 +203,7 @@ M.browse = function(opts)
         cwd = M.state.cwd,
         fzf_args = table.concat(fzf_args, " "),
         previewer = previewer,
+        prompt = prompt,
         winopts = {
             title = " File Browser ",
         },
