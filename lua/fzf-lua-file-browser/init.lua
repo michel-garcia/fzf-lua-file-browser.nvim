@@ -3,6 +3,7 @@ local fzf_path = require("fzf-lua.path")
 local fzf_utils = require("fzf-lua.utils")
 
 local actions = require("fzf-lua-file-browser.actions")
+local previewer = require("fzf-lua-file-browser.previewer")
 
 local hijack_netrw = function()
     vim.api.nvim_create_autocmd("VimEnter", {
@@ -124,23 +125,22 @@ M.make_item = function(file)
     if M.opts.color_icons and color then
         icon = fzf_utils.ansi_from_rgb(color, icon)
     end
-    local item = table.concat(
+    local label = table.concat(
         vim.tbl_filter(function(value)
             return value
         end, { icon, name }),
         " "
     )
-    return item, key
+    local item = {
+        key = key,
+        label = label,
+        file = file,
+    }
+    return item
 end
 
-M.browse = function(opts)
-    opts = opts or {}
-    M.state.cwd = opts.cwd or vim.fn.expand("%:p:h") or vim.loop.cwd()
-    M.state.files = {}
-    if not opts.cwd then
-        M.state.active = vim.fn.expand("%:t:h")
-    end
-    local files = get_files(M.state.cwd)
+M.get_items = function(path)
+    local files = get_files(path)
     if not M.state.hidden then
         files = vim.tbl_filter(function(file)
             return not file.is_hidden
@@ -152,6 +152,20 @@ M.browse = function(opts)
         end
         return a.is_dir
     end)
+    local items = {}
+    for _, file in ipairs(files) do
+        local item = M.make_item(file)
+        table.insert(items, item)
+    end
+    return items
+end
+
+M.browse = function(opts)
+    opts = opts or {}
+    M.state.cwd = opts.cwd or vim.fn.expand("%:p:h") or vim.loop.cwd()
+    if not opts.cwd then
+        M.state.active = vim.fn.expand("%:t:h")
+    end
     local fzf_args = {
         "--sync",
         "--bind change:first",
@@ -161,25 +175,27 @@ M.browse = function(opts)
         local arg = string.format("--header=%s", path)
         table.insert(fzf_args, arg)
     end
-    local items = {}
-    for i, file in ipairs(files) do
-        local item, key = M.make_item(file)
-        table.insert(items, item)
-        M.state.files[key] = file
-        if file.name == M.state.active then
+    local items = M.get_items(M.state.cwd)
+    M.state.files = {}
+    local lines = {}
+    for i, item in ipairs(items) do
+        table.insert(lines, item.label)
+        M.state.files[item.key] = item.file
+        if item.file.name == M.state.active then
             local arg = string.format("--bind start:pos\\(%s\\)", i)
             table.insert(fzf_args, arg)
         end
     end
     fzf.fzf_exec(function(callback)
-        for _, item in ipairs(items) do
-            callback(item)
+        for _, line in ipairs(lines) do
+            callback(line)
         end
         callback()
     end, {
         actions = M.opts.actions,
         cwd = M.state.cwd,
         fzf_args = table.concat(fzf_args, " "),
+        previewer = previewer,
         winopts = {
             title = " File Browser ",
         },

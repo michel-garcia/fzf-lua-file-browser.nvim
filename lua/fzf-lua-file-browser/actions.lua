@@ -7,9 +7,9 @@ M.open = function(selected, opts)
     if not next(selected) then
         return
     end
-    local item = selected[1]
+    local key = selected[1]
     local browser = require("fzf-lua-file-browser")
-    local file = browser.state.files[item] or nil
+    local file = browser.state.files[key] or nil
     if not file then
         return
     end
@@ -77,8 +77,8 @@ M.rename = function(selected, opts)
     if not next(selected) then
         return
     end
-    local item = selected[1]
-    local file = M.state.files[item] or nil
+    local key = selected[1]
+    local file = M.state.files[key] or nil
     if not file then
         return
     end
@@ -106,9 +106,9 @@ M.delete = function(selected, opts)
     if not next(selected) then
         return
     end
-    local item = selected[1]
+    local key = selected[1]
     local browser = require("fzf-lua-file-browser")
-    local file = browser.state.files[item]
+    local file = browser.state.files[key]
     vim.ui.input({
         prompt = string.format("Delete %s? [y/n]", file.name),
     }, function(input)
