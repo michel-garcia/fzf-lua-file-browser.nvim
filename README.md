@@ -50,33 +50,23 @@ Below is an example lua table of the available options and their respective defa
 
 ```lua
 {
-    -- action handlers
     actions = {
-        ["default"] = actions.edit_or_browse,
-        ["ctrl-g"] = actions.go_to_parent,
-        ["ctrl-w"] = actions.go_to_cwd,
-        ["ctrl-h"] = actions.toggle_hidden,
-        ["ctrl-e"] = actions.go_to_home,
+        ["default"] = actions.open,
+        ["ctrl-g"] = actions.parent,
+        ["ctrl-w"] = actions.cwd,
+        ["ctrl-e"] = actions.home,
+        ["ctrl-t"] = actions.toggle_hidden,
         ["ctrl-a"] = actions.create,
         ["ctrl-r"] = actions.rename,
-        ["ctrl-x"] = actions.delete
+        ["ctrl-d"] = actions.delete,
     },
-    -- current working directory, pass nil to use current
-    cwd = nil,
-    -- group directories first regardless of sort
-    group_directories_first = true,
-    -- whether or not to show hidden entries
+    color_icons = true,
+    dir_icon = "󰉋",
+    dir_icon_hl = "Directory",
+    file_icons = true,
     hidden = false,
-    -- enable natural sort
-    natural_sort = true,
-    -- prompt
-    prompt = "File Browser> ",
-    -- reverse sort order
-    reverse = false,
-    -- whether or not to show the cwd in the header
+    hijack_netrw = false,
     show_cwd_header = true,
-    -- sort, one of: name | width
-    sort = "name"
 }
 ```
 
@@ -88,8 +78,8 @@ local actions = require("fzf-lua-file-browser.actions")
 file_browser.setup({
     actions = {
         ["ctrl-l"] = actions.rename,
-        -- or even use your own callback
-        ["ctrl-m"] = function (selected, opts)
+        -- or use your own callback
+        ["ctrl-m"] = function(selected, opts)
             if next(selected) then
                 print(selected[1])
             end
