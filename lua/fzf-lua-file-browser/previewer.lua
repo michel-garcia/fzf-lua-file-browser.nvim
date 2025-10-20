@@ -14,25 +14,20 @@ M.populate_preview_buf = function(self, key)
     if not file then
         return
     end
+    if not file.is_dir then
+        self.super.populate_preview_buf(self, file.name)
+        return
+    end
     local buf = self:get_tmp_buffer()
+    local items = browser.get_items(file.path)
     local lines = {}
-    if file.is_dir then
-        local items = browser.get_items(file.path)
-        for _, item in ipairs(items) do
-            table.insert(lines, item.key)
-        end
-    else
-        local handle = io.open(file.path, "r")
-        if handle then
-            for line in handle:lines() do
-                table.insert(lines, line)
-            end
-            handle:close()
-        end
+    for _, item in ipairs(items) do
+        table.insert(lines, item.key)
     end
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     self:set_preview_buf(buf)
     self.win:update_preview_title(string.format(" %s ", file.name))
+    self:preview_buf_post({ path = file.path })
 end
 
 return M
