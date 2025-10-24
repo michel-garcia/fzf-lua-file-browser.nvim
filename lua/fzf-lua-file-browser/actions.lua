@@ -77,8 +77,9 @@ M.rename = function(selected, opts)
     if not next(selected) then
         return
     end
+    local browser = require("fzf-lua-file-browser")
     local key = selected[1]
-    local file = M.state.files[key] or nil
+    local file = browser.state.files[key] or nil
     if not file then
         return
     end
@@ -86,7 +87,6 @@ M.rename = function(selected, opts)
         prompt = "New name: ",
         default = file.name,
     }, function(name)
-        local browser = require("fzf-lua-file-browser")
         if name then
             local cwd = opts.cwd or browser.state.cwd
             local path = fzf_path.join({ cwd, name })
