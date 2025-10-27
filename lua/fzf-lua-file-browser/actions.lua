@@ -47,16 +47,16 @@ M.toggle_hidden = function(_, opts)
 end
 
 M.create = function(_, opts)
+    local browser = require("fzf-lua-file-browser")
+    local cwd = opts.cwd or browser.state.cwd
     vim.ui.input({
-        prompt = "New name: ",
-    }, function(name)
-        local browser = require("fzf-lua-file-browser")
-        if name then
-            local cwd = opts.cwd or browser.state.cwd
-            local path = fzf_path.join({ cwd, name })
+        prompt = "New path: ",
+        default = string.format("%s/", cwd),
+    }, function(path)
+        if path then
             local stat = vim.loop.fs_stat(path) or {}
             if vim.tbl_isempty(stat) then
-                if name:sub(-1) == "/" then
+                if path:sub(-1) == "/" then
                     vim.loop.fs_mkdir(path, 493)
                 else
                     local handle = vim.loop.fs_open(path, "w", 420)
@@ -67,7 +67,7 @@ M.create = function(_, opts)
             else
                 vim.notify("File already exists.", vim.log.levels.ERROR)
             end
-            browser.state.active = name
+            browser.state.active = fzf_path.basename(path)
         end
         browser.browse(opts)
     end)
@@ -84,19 +84,19 @@ M.rename = function(selected, opts)
         return
     end
     vim.ui.input({
-        prompt = "New name: ",
-        default = file.name,
-    }, function(name)
-        if name then
-            local cwd = opts.cwd or browser.state.cwd
-            local path = fzf_path.join({ cwd, name })
-            local stat = vim.loop.fs_stat(path) or {}
-            if vim.tbl_isempty(stat) then
-                vim.loop.fs_rename(file.path, path)
-            else
-                vim.notify("File already exists.", vim.log.levels.ERROR)
+        prompt = "New path: ",
+        default = file.path,
+    }, function(path)
+        if path then
+            if path ~= file.path then
+                local stat = vim.loop.fs_stat(path) or {}
+                if vim.tbl_isempty(stat) then
+                    vim.loop.fs_rename(file.path, path)
+                else
+                    vim.notify("File already exists.", vim.log.levels.ERROR)
+                end
             end
-            browser.state.active = name
+            browser.state.active = fzf_path.basename(path)
         end
         browser.browse(opts)
     end)
