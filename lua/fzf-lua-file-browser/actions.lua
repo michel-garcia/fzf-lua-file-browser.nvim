@@ -1,6 +1,27 @@
 local fzf_actions = require("fzf-lua.actions")
 local fzf_path = require("fzf-lua.path")
 
+local function rmdir(start)
+    local handle = vim.loop.fs_scandir(start)
+    if not handle then
+        return
+    end
+    while true do
+        local name, typ = vim.loop.fs_scandir_next(handle)
+        if not name then
+            break
+        end
+        local path = fzf_path.join({ start, name })
+        if typ == "directory" then
+            rmdir(path)
+            vim.loop.fs_rmdir(path)
+        elseif typ == "file" then
+            vim.loop.fs_unlink(path)
+        end
+    end
+    vim.loop.fs_rmdir(start)
+end
+
 local M = {}
 
 M.open = function(selected, opts)
@@ -56,6 +77,8 @@ M.create = function(_, opts)
         if path then
             local stat = vim.loop.fs_stat(path) or {}
             if vim.tbl_isempty(stat) then
+                local parent = fzf_path.parent(path)
+                vim.fn.mkdir(parent, "p")
                 if path:sub(-1) == "/" then
                     vim.loop.fs_mkdir(path, 493)
                 else
@@ -91,6 +114,8 @@ M.rename = function(selected, opts)
             if path ~= file.path then
                 local stat = vim.loop.fs_stat(path) or {}
                 if vim.tbl_isempty(stat) then
+                    local parent = fzf_path.parent(path)
+                    vim.fn.mkdir(parent, "p")
                     vim.loop.fs_rename(file.path, path)
                 else
                     vim.notify("File already exists.", vim.log.levels.ERROR)
@@ -114,7 +139,7 @@ M.delete = function(selected, opts)
     }, function(input)
         if input == "y" then
             if file.is_dir then
-                vim.loop.fs_rmdir(file.path)
+                rmdir(file.path)
             else
                 vim.loop.fs_unlink(file.path)
             end
