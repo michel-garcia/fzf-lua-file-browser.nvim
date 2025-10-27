@@ -72,7 +72,7 @@ M.create = function(_, opts)
     local cwd = opts.cwd or browser.state.cwd
     vim.ui.input({
         prompt = "New path: ",
-        default = string.format("%s/", cwd),
+        default = fzf_path.add_trailing(cwd),
     }, function(path)
         if path then
             local stat = vim.loop.fs_stat(path) or {}
