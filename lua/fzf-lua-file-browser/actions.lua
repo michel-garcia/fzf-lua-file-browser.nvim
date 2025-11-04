@@ -99,6 +99,13 @@ M.rename = {
                 return
             end
             file:rename(path)
+            local bufnr = vim.fn.bufnr(file.path)
+            if bufnr ~= -1 then
+                vim.api.nvim_buf_set_name(bufnr, path)
+                vim.api.nvim_buf_call(bufnr, function()
+                    vim.api.nvim_command("silent! w!")
+                end)
+            end
             browser.state.active = fzf_path.basename(path)
         end)
         browser.browse(opts)
@@ -124,6 +131,15 @@ M.delete = {
                 return
             end
             file:delete()
+            local bufnr = vim.fn.bufnr(file.path)
+            if bufnr ~= -1 then
+                local wins = vim.fn.win_findbuf(bufnr)
+                for _, win in ipairs(wins) do
+                    local buf = vim.api.nvim_create_buf(false, false)
+                    vim.api.nvim_win_set_buf(win, buf)
+                end
+                vim.api.nvim_buf_delete(bufnr, { force = true })
+            end
             browser.browse(opts)
         end)
     end,
