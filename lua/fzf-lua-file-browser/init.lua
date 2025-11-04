@@ -1,8 +1,8 @@
 local fzf = require("fzf-lua")
-local fzf_path = require("fzf-lua.path")
 local fzf_utils = require("fzf-lua.utils")
 
 local actions = require("fzf-lua-file-browser.actions")
+local filesystem = require("fzf-lua-file-browser.filesystem")
 local previewer = require("fzf-lua-file-browser.previewer")
 
 local hijack_netrw = function()
@@ -36,32 +36,6 @@ local hijack_netrw = function()
             clear = true,
         }),
     })
-end
-
-local get_files = function(path)
-    local handle = vim.loop.fs_scandir(path)
-    if not handle then
-        return {}
-    end
-    local files = {}
-    while true do
-        local name, typ = vim.loop.fs_scandir_next(handle)
-        if not name then
-            break
-        end
-        if typ == "link" then
-            local stat = vim.loop.fs_stat(name) or {}
-            typ = stat and stat.type or "file"
-        end
-        table.insert(files, {
-            name = name,
-            type = typ,
-            is_dir = typ == "directory",
-            is_hidden = name:sub(1, 1) == ".",
-            path = fzf_path.join({ path, name }),
-        })
-    end
-    return files
 end
 
 local M = {}
@@ -142,7 +116,7 @@ M.make_item = function(file)
 end
 
 M.get_items = function(path)
-    local files = get_files(path)
+    local files = filesystem.get_files(path)
     if not M.state.hidden then
         files = vim.tbl_filter(function(file)
             return not file.is_hidden

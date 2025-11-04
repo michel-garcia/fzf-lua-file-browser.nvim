@@ -1,26 +1,7 @@
 local fzf_actions = require("fzf-lua.actions")
 local fzf_path = require("fzf-lua.path")
 
-local function rmdir(start)
-    local handle = vim.loop.fs_scandir(start)
-    if not handle then
-        return
-    end
-    while true do
-        local name, typ = vim.loop.fs_scandir_next(handle)
-        if not name then
-            break
-        end
-        local path = fzf_path.join({ start, name })
-        if typ == "directory" then
-            rmdir(path)
-            vim.loop.fs_rmdir(path)
-        elseif typ == "file" then
-            vim.loop.fs_unlink(path)
-        end
-    end
-    vim.loop.fs_rmdir(start)
-end
+local filesystem = require("fzf-lua-file-browser.filesystem")
 
 local M = {}
 
@@ -78,21 +59,12 @@ M.create = {
             if not path then
                 return
             end
-            local stat = vim.loop.fs_stat(path) or {}
-            if not vim.tbl_isempty(stat) then
+            local exists = filesystem.exists(path)
+            if exists then
                 vim.notify("File already exists.", vim.log.levels.ERROR)
                 return
             end
-            local parent = fzf_path.parent(path)
-            vim.fn.mkdir(parent, "p")
-            if path:sub(-1) == "/" then
-                vim.loop.fs_mkdir(path, 493)
-            else
-                local handle = vim.loop.fs_open(path, "w", 420)
-                if handle then
-                    vim.loop.fs_close(handle)
-                end
-            end
+            filesystem.create(path)
             browser.state.active = fzf_path.basename(path)
             browser.browse(opts)
         end)
@@ -121,14 +93,12 @@ M.rename = {
             if path == file.path then
                 return
             end
-            local stat = vim.loop.fs_stat(path) or {}
-            if not vim.tbl_isempty(stat) then
+            local exists = filesystem.exists(path)
+            if exists then
                 vim.notify("File already exists.", vim.log.levels.ERROR)
                 return
             end
-            local parent = fzf_path.parent(path)
-            vim.fn.mkdir(parent, "p")
-            vim.loop.fs_rename(file.path, path)
+            file:rename(path)
             browser.state.active = fzf_path.basename(path)
         end)
         browser.browse(opts)
@@ -153,11 +123,7 @@ M.delete = {
             if input ~= "y" then
                 return
             end
-            if file.is_dir then
-                rmdir(file.path)
-            else
-                vim.loop.fs_unlink(file.path)
-            end
+            file:delete()
             browser.browse(opts)
         end)
     end,
