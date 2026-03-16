@@ -1,5 +1,8 @@
 local fzf_previewer_builtin = require("fzf-lua.previewer.builtin")
 
+local state = require("fzf-lua-file-browser.state")
+local utils = require("fzf-lua-file-browser.utils")
+
 local M = fzf_previewer_builtin.buffer_or_file:extend()
 
 function M:new(o, opts, fzf_win)
@@ -9,8 +12,7 @@ function M:new(o, opts, fzf_win)
 end
 
 M.populate_preview_buf = function(self, key)
-    local browser = require("fzf-lua-file-browser")
-    local file = browser.state.files[key] or nil
+    local file = state.files[key] or nil
     if not file then
         return
     end
@@ -19,7 +21,7 @@ M.populate_preview_buf = function(self, key)
         return
     end
     local buf = self:get_tmp_buffer()
-    local items = browser.get_items(file.path)
+    local items = utils.get_items(file.path)
     local lines = {}
     for _, item in ipairs(items) do
         table.insert(lines, item.key)
@@ -27,7 +29,9 @@ M.populate_preview_buf = function(self, key)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     self:set_preview_buf(buf)
     self.win:update_preview_title(string.format(" %s ", file.name))
-    self:preview_buf_post({ path = file.path })
+    self:preview_buf_post({
+        path = file.path,
+    })
 end
 
 return M

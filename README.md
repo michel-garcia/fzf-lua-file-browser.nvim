@@ -82,10 +82,10 @@ file_browser.setup({
         ["ctrl-l"] = actions.rename,
         -- or use your own callback
         ["ctrl-m"] = function(selected, opts)
-            if next(selected) then
+            if not vim.tbl_isempty(selected) then
                 print(selected[1])
             end
-            file_browser.browse(opts) -- use this instruction to resume
+            opts.browser.browse(opts) -- use this instruction to resume
         end,
     },
 }
