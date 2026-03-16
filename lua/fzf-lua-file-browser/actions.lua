@@ -32,6 +32,52 @@ M.open = {
     reload = true,
 }
 
+M.split = {
+    fn = function(selected, opts)
+        if vim.tbl_isempty(selected) then
+            return
+        end
+        local key = selected[1]
+        local file = state.files[key] or nil
+        if not file then
+            return
+        end
+        if file.is_dir then
+            vim.notify("Selection must be a file")
+            return
+        end
+        local win = vim.api.nvim_get_current_win()
+        vim.api.nvim_win_close(win, true)
+        fzf_actions.file_split({
+            file.path,
+        }, opts)
+    end,
+    reload = true,
+}
+
+M.vsplit = {
+    fn = function(selected, opts)
+        if vim.tbl_isempty(selected) then
+            return
+        end
+        local key = selected[1]
+        local file = state.files[key] or nil
+        if not file then
+            return
+        end
+        if file.is_dir then
+            vim.notify("Selection must be a file")
+            return
+        end
+        local win = vim.api.nvim_get_current_win()
+        vim.api.nvim_win_close(win, true)
+        fzf_actions.file_vsplit({
+            file.path,
+        }, opts)
+    end,
+    reload = true,
+}
+
 M.parent = {
     fn = function(_, opts)
         state.active = vim.fn.fnamemodify(vim.fs.normalize(state.cwd), ":t")
