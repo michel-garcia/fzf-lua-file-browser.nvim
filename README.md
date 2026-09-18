@@ -34,6 +34,15 @@ Using [Lazy](https://github.com/folke/lazy.nvim):
 }
 ```
 
+Using [vim.pack](https://neovim.io/doc/user/pack/#_plugin-manager):
+
+```lua
+vim.pack.add({
+    "https://github.com/ibhagwan/fzf-lua"
+    "https://github.com/michel-garcia/fzf-lua-file-browser.nvim",
+})
+```
+
 ## Setup
 
 To initialize the plugin call `setup`:
@@ -51,43 +60,55 @@ Below is an example lua table of the available options and their respective defa
 ```lua
 {
     actions = {
-        ["default"] = actions.open,
-        ["ctrl-s"] = actions.split,
-        ["ctrl-v"] = actions.vsplit,
-        ["ctrl-g"] = actions.parent,
-        ["ctrl-w"] = actions.cwd,
-        ["ctrl-e"] = actions.home,
-        ["ctrl-h"] = actions.toggle_hidden,
-        ["ctrl-a"] = actions.create,
-        ["ctrl-r"] = actions.rename,
-        ["ctrl-d"] = actions.delete,
+        ["default"] = file_browser.defaults.actions.open,
+        ["ctrl-s"] = file_browser.defaults.actions.split,
+        ["ctrl-v"] = file_browser.defaults.actions.split_vertical,
+        ["ctrl-g"] = file_browser.defaults.actions.go_to_parent,
+        ["ctrl-e"] = file_browser.defaults.actions.go_to_cwd,
+        ["ctrl-h"] = file_browser.defaults.actions.toggle_hidden,
+        ["ctrl-a"] = file_browser.defaults.actions.create,
+        ["ctrl-r"] = file_browser.defaults.actions.rename,
+        ["ctrl-d"] = file_browser.defaults.actions.delete,
+        ["ctrl-y"] = file_browser.defaults.actions.copy,
+        ["ctrl-t"] = file_browser.defaults.actions.cut,
+        ["ctrl-o"] = file_browser.defaults.actions.paste,
     },
     color_icons = true,
-    cwd_header = false,
-    cwd_prompt = true,
-    dir_icon = "󰉋",
-    dir_icon_hl = "Directory",
     file_icons = true,
     hidden = true,
     hijack_netrw = false,
-    prompt = "> ",
 }
 ```
 
-To customize the actions you may do the following:
+Default mappings:
+
+| Keymap | Action         | Description                                         |
+| ------ | -------------- | --------------------------------------------------- |
+| <cr>   | open           | Open file or browse directory                       |
+| <c-s>  | split          | Open file in a horizontal split                     |
+| <c-v>  | split_vertical | Open file in a vertical split                       |
+| <c-g>  | go_to_parent   | Go to parent directory                              |
+| <c-e>  | go_to_cwd      | Go to current working directory                     |
+| <c-h>  | toggle_hidden  | Toggle hidden files                                 |
+| <c-a>  | create         | Create file or directory                            |
+| <c-r>  | rename         | Rename file or directory                            |
+| <c-d>  | delete         | Delete selected files and/or directories            |
+| <c-y>  | copy           | Copy selected files and/or directories to clipboard |
+| <c-t>  | cut            | Cut selected files and/or directories to clipboard  |
+| <c-o>  | paste          | Paste files and/or directories from clipboard       |
+
+To add custom actions you may do the following:
 
 ```lua
 local file_browser = require("fzf-lua-file-browser")
-local actions = require("fzf-lua-file-browser.actions")
 file_browser.setup({
     actions = {
-        ["ctrl-l"] = actions.rename,
-        -- or use your own callback
-        ["ctrl-m"] = function(selected, opts)
-            if not vim.tbl_isempty(selected) then
-                print(selected[1])
+        ["ctrl-f"] = function(selected, opts)
+            if vim.tbl_isempty(selected) then
+                return
             end
-            opts.browser.browse(opts) -- use this instruction to resume
+            local msg = string.format("Selected %s file(s)", vim.tbl_count(selected))
+            vim.notify(msg)
         end,
     },
 }
@@ -106,7 +127,7 @@ Directly:
 Using a keymap:
 
 ```lua
-vim.keymap.set("n", "<leader>fe", "<Cmd>FzfLua file_browser<CR>", { silent = true })
+vim.keymap.set("n", "<leader>fe", "<Cmd>FzfLua file_browser<CR>")
 ```
 
 From there on you can use the keybindings to interact with your files.
