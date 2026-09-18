@@ -5,6 +5,272 @@ local utils = require("fzf-lua.utils")
 
 local M = {}
 
+M.defaults = {
+    actions = {
+        open = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local item = table.remove(selected)
+                local file = path.entry_to_file(item)
+                file.path = path.join({ o.cwd, file.path })
+                local stat = vim.uv.fs_stat(file.path)
+                if not stat then
+                    return
+                end
+                if stat.type == "directory" then
+                    o.cwd = file.path
+                    return
+                end
+                local win = vim.api.nvim_get_current_win()
+                vim.api.nvim_win_close(win, true)
+                vim.schedule(function()
+                    fzf.actions.file_edit({
+                        file.path,
+                    }, o)
+                end)
+            end,
+            field_index = "{}",
+            postfix = "clear-query",
+            reload = true,
+        },
+        split = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local item = table.remove(selected)
+                local file = path.entry_to_file(item)
+                file.path = path.join({ o.cwd, file.path })
+                local stat = vim.uv.fs_stat(file.path)
+                if not stat or stat.type == "directory" then
+                    return
+                end
+                local win = vim.api.nvim_get_current_win()
+                vim.api.nvim_win_close(win, true)
+                vim.schedule(function()
+                    fzf.actions.file_split({
+                        file.path,
+                    }, o)
+                end)
+            end,
+            field_index = "{}",
+            reload = true,
+        },
+        split_vertical = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local item = table.remove(selected)
+                local file = path.entry_to_file(item)
+                file.path = path.join({ o.cwd, file.path })
+                local stat = vim.uv.fs_stat(file.path)
+                if not stat or stat.type == "directory" then
+                    return
+                end
+                local win = vim.api.nvim_get_current_win()
+                vim.api.nvim_win_close(win, true)
+                vim.schedule(function()
+                    fzf.actions.file_vsplit({
+                        file.path,
+                    }, o)
+                end)
+            end,
+            field_index = "{}",
+            reload = true,
+        },
+        go_to_parent = {
+            fn = function(_, o)
+                o.cwd = path.parent(o.cwd)
+            end,
+            postfix = "clear-query",
+            reload = true,
+        },
+        go_to_cwd = {
+            fn = function(_, o)
+                o.cwd = vim.uv.cwd()
+            end,
+            postfix = "clear-query",
+            reload = true,
+        },
+        toggle_hidden = {
+            fn = function(_, o)
+                o.hidden = not o.hidden
+            end,
+            reload = true,
+        },
+        create = {
+            fn = function(_, o)
+                vim.ui.input({
+                    prompt = "New path: ",
+                    default = path.add_trailing(o.cwd),
+                }, function(target)
+                    if not target then
+                        return
+                    end
+                    local stat = vim.uv.fs_stat(target)
+                    if stat then
+                        return
+                    end
+                    if string.sub(target, -1) == "/" then
+                        local mode = tonumber("755", 8)
+                        vim.uv.fs_mkdir(target, mode)
+                        return
+                    end
+                    local mode = tonumber("644", 8)
+                    local handle = vim.uv.fs_open(target, "w", mode)
+                    vim.uv.fs_close(handle)
+                end)
+            end,
+            postfix = "clear-query",
+            reload = true,
+        },
+        rename = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local item = table.remove(selected)
+                local file = path.entry_to_file(item)
+                file.path = path.join({ o.cwd, file.path })
+                vim.ui.input({
+                    prompt = "New path: ",
+                    default = file.path,
+                }, function(target)
+                    if not target or target == file.path then
+                        return
+                    end
+                    vim.uv.fs_rename(file.path, target)
+                    local bufnr = vim.fn.bufnr(file.path)
+                    if bufnr ~= -1 then
+                        local wins = vim.fn.win_findbuf(bufnr)
+                        for _, win in ipairs(wins) do
+                            local buf = vim.api.nvim_create_buf(false, false)
+                            vim.api.nvim_win_set_buf(win, buf)
+                        end
+                        vim.api.nvim_buf_delete(bufnr, {
+                            force = true,
+                        })
+                    end
+                end)
+            end,
+            field_index = "{}",
+            postfix = "clear-query",
+            reload = true,
+        },
+        delete = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                vim.ui.input({
+                    prompt = string.format("Delete %s file(s)? [y/n] ", vim.tbl_count(selected)),
+                }, function(input)
+                    if input ~= "y" then
+                        return
+                    end
+                    for _, item in ipairs(selected) do
+                        local file = path.entry_to_file(item)
+                        file.path = path.join({ o.cwd, file.path })
+                        local stat = vim.uv.fs_stat(file.path)
+                        if not stat then
+                            return
+                        end
+                        if stat.type == "directory" then
+                            vim.fn.delete(file.path, "rf")
+                        else
+                            vim.uv.fs_unlink(file.path)
+                        end
+                        local bufnr = vim.fn.bufnr(file.path)
+                        if bufnr ~= -1 then
+                            local wins = vim.fn.win_findbuf(bufnr)
+                            for _, win in ipairs(wins) do
+                                local buf = vim.api.nvim_create_buf(false, false)
+                                vim.api.nvim_win_set_buf(win, buf)
+                            end
+                            vim.api.nvim_buf_delete(bufnr, {
+                                force = true,
+                            })
+                        end
+                    end
+                end)
+            end,
+            postfix = "clear-query",
+            reload = true,
+        },
+        copy = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
+                vim.notify(msg)
+                o.clipboard = {
+                    action = "copy",
+                    files = vim.tbl_map(function(item)
+                        local file = path.entry_to_file(item)
+                        file.path = path.join({ o.cwd, file.path })
+                        return file
+                    end, selected),
+                }
+            end,
+            reload = true,
+        },
+        cut = {
+            fn = function(selected, o)
+                if vim.tbl_isempty(selected) then
+                    return
+                end
+                local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
+                vim.notify(msg)
+                o.clipboard = {
+                    action = "cut",
+                    files = vim.tbl_map(function(item)
+                        local file = path.entry_to_file(item)
+                        file.path = path.join({ o.cwd, file.path })
+                        return file
+                    end, selected),
+                }
+            end,
+            reload = true,
+        },
+        paste = {
+            fn = function(_, o)
+                if vim.isnil(o.clipboard) or vim.tbl_isempty(o.clipboard.files) then
+                    return
+                end
+                for _, file in ipairs(o.clipboard.files) do
+                    local stat = vim.uv.fs_stat(file.path)
+                    if stat then
+                        local target = path.join({ o.cwd, path.basename(file.path) })
+                        if o.clipboard.action == "copy" then
+                            vim.uv.fs_copyfile(file.path, target)
+                        end
+                        if o.clipboard.action == "cut" then
+                            vim.uv.fs_rename(file.path, target)
+                        end
+                        local bufnr = vim.fn.bufnr(file.path)
+                        if bufnr ~= -1 then
+                            local wins = vim.fn.win_findbuf(bufnr)
+                            for _, win in ipairs(wins) do
+                                local buf = vim.api.nvim_create_buf(false, false)
+                                vim.api.nvim_win_set_buf(win, buf)
+                            end
+                            vim.api.nvim_buf_delete(bufnr, {
+                                force = true,
+                            })
+                        end
+                    end
+                end
+                o.clipboard = nil
+            end,
+            reload = true,
+        },
+    },
+}
+
 M.hijack_netrw = function()
     vim.api.nvim_create_autocmd("VimEnter", {
         callback = function()
@@ -56,267 +322,18 @@ M.setup = function(opts)
         M.browse,
         vim.tbl_deep_extend("keep", opts or {}, {
             actions = {
-                ["default"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local item = table.remove(selected)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        local stat = vim.uv.fs_stat(file.path)
-                        if not stat then
-                            return
-                        end
-                        if stat.type == "directory" then
-                            o.cwd = file.path
-                            return
-                        end
-                        local win = vim.api.nvim_get_current_win()
-                        vim.api.nvim_win_close(win, true)
-                        vim.schedule(function()
-                            fzf.actions.file_edit({
-                                file.path,
-                            }, o)
-                        end)
-                    end,
-                    field_index = "{}",
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-s"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local item = table.remove(selected)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        local stat = vim.uv.fs_stat(file.path)
-                        if not stat or stat.type == "directory" then
-                            return
-                        end
-                        local win = vim.api.nvim_get_current_win()
-                        vim.api.nvim_win_close(win, true)
-                        vim.schedule(function()
-                            fzf.actions.file_split({
-                                file.path,
-                            }, o)
-                        end)
-                    end,
-                    field_index = "{}",
-                    reload = true,
-                },
-                ["ctrl-v"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local item = table.remove(selected)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        local stat = vim.uv.fs_stat(file.path)
-                        if not stat or stat.type == "directory" then
-                            return
-                        end
-                        local win = vim.api.nvim_get_current_win()
-                        vim.api.nvim_win_close(win, true)
-                        vim.schedule(function()
-                            fzf.actions.file_vsplit({
-                                file.path,
-                            }, o)
-                        end)
-                    end,
-                    field_index = "{}",
-                    reload = true,
-                },
-                ["ctrl-g"] = {
-                    fn = function(_, o)
-                        o.cwd = path.parent(o.cwd)
-                    end,
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-e"] = {
-                    fn = function(_, o)
-                        o.cwd = vim.uv.cwd()
-                    end,
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-h"] = {
-                    fn = function(_, o)
-                        o.hidden = not o.hidden
-                    end,
-                    reload = true,
-                },
-                ["ctrl-a"] = {
-                    fn = function(_, o)
-                        vim.ui.input({
-                            prompt = "New path: ",
-                            default = path.add_trailing(o.cwd),
-                        }, function(target)
-                            if not target then
-                                return
-                            end
-                            local stat = vim.uv.fs_stat(target)
-                            if stat then
-                                return
-                            end
-                            if string.sub(target, -1) == "/" then
-                                local mode = tonumber("755", 8)
-                                vim.uv.fs_mkdir(target, mode)
-                                return
-                            end
-                            local mode = tonumber("644", 8)
-                            local handle = vim.uv.fs_open(target, "w", mode)
-                            vim.uv.fs_close(handle)
-                        end)
-                    end,
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-r"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local item = table.remove(selected)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        vim.ui.input({
-                            prompt = "New path: ",
-                            default = file.path,
-                        }, function(target)
-                            if not target or target == file.path then
-                                return
-                            end
-                            vim.uv.fs_rename(file.path, target)
-                            local bufnr = vim.fn.bufnr(file.path)
-                            if bufnr ~= -1 then
-                                local wins = vim.fn.win_findbuf(bufnr)
-                                for _, win in ipairs(wins) do
-                                    local buf = vim.api.nvim_create_buf(false, false)
-                                    vim.api.nvim_win_set_buf(win, buf)
-                                end
-                                vim.api.nvim_buf_delete(bufnr, {
-                                    force = true,
-                                })
-                            end
-                        end)
-                    end,
-                    field_index = "{}",
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-d"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        vim.ui.input({
-                            prompt = string.format("Delete %s file(s)? [y/n] ", vim.tbl_count(selected)),
-                        }, function(input)
-                            if input ~= "y" then
-                                return
-                            end
-                            for _, item in ipairs(selected) do
-                                local file = path.entry_to_file(item)
-                                file.path = path.join({ o.cwd, file.path })
-                                local stat = vim.uv.fs_stat(file.path)
-                                if not stat then
-                                    return
-                                end
-                                if stat.type == "directory" then
-                                    vim.fn.delete(file.path, "rf")
-                                else
-                                    vim.uv.fs_unlink(file.path)
-                                end
-                                local bufnr = vim.fn.bufnr(file.path)
-                                if bufnr ~= -1 then
-                                    local wins = vim.fn.win_findbuf(bufnr)
-                                    for _, win in ipairs(wins) do
-                                        local buf = vim.api.nvim_create_buf(false, false)
-                                        vim.api.nvim_win_set_buf(win, buf)
-                                    end
-                                    vim.api.nvim_buf_delete(bufnr, {
-                                        force = true,
-                                    })
-                                end
-                            end
-                        end)
-                    end,
-                    postfix = "clear-query",
-                    reload = true,
-                },
-                ["ctrl-y"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
-                        vim.notify(msg)
-                        o.clipboard = {
-                            action = "copy",
-                            files = vim.tbl_map(function(item)
-                                local file = path.entry_to_file(item)
-                                file.path = path.join({ o.cwd, file.path })
-                                return file
-                            end, selected),
-                        }
-                    end,
-                    reload = true,
-                },
-                ["ctrl-t"] = {
-                    fn = function(selected, o)
-                        if vim.tbl_isempty(selected) then
-                            return
-                        end
-                        local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
-                        vim.notify(msg)
-                        o.clipboard = {
-                            action = "move",
-                            files = vim.tbl_map(function(item)
-                                local file = path.entry_to_file(item)
-                                file.path = path.join({ o.cwd, file.path })
-                                return file
-                            end, selected),
-                        }
-                    end,
-                    reload = true,
-                },
-                ["ctrl-o"] = {
-                    fn = function(_, o)
-                        if vim.isnil(o.clipboard) or vim.tbl_isempty(o.clipboard.files) then
-                            return
-                        end
-                        for _, file in ipairs(o.clipboard.files) do
-                            local stat = vim.uv.fs_stat(file.path)
-                            if stat then
-                                local target = path.join({ o.cwd, path.basename(file.path) })
-                                if o.clipboard.action == "copy" then
-                                    vim.uv.fs_copyfile(file.path, target)
-                                end
-                                if o.clipboard.action == "move" then
-                                    vim.uv.fs_rename(file.path, target)
-                                end
-                                local bufnr = vim.fn.bufnr(file.path)
-                                if bufnr ~= -1 then
-                                    local wins = vim.fn.win_findbuf(bufnr)
-                                    for _, win in ipairs(wins) do
-                                        local buf = vim.api.nvim_create_buf(false, false)
-                                        vim.api.nvim_win_set_buf(win, buf)
-                                    end
-                                    vim.api.nvim_buf_delete(bufnr, {
-                                        force = true,
-                                    })
-                                end
-                            end
-                        end
-                        o.clipboard = nil
-                    end,
-                    reload = true,
-                },
+                ["default"] = M.defaults.actions.open,
+                ["ctrl-s"] = M.defaults.actions.split,
+                ["ctrl-v"] = M.defaults.actions.split_vertical,
+                ["ctrl-g"] = M.defaults.actions.go_to_parent,
+                ["ctrl-e"] = M.defaults.actions.go_to_cwd,
+                ["ctrl-h"] = M.defaults.actions.toggle_hidden,
+                ["ctrl-a"] = M.defaults.actions.create,
+                ["ctrl-r"] = M.defaults.actions.rename,
+                ["ctrl-d"] = M.defaults.actions.delete,
+                ["ctrl-y"] = M.defaults.actions.copy,
+                ["ctrl-t"] = M.defaults.actions.cut,
+                ["ctrl-o"] = M.defaults.actions.paste,
             },
             color_icons = true,
             dir_icon = fzf.defaults.dir_icon,
