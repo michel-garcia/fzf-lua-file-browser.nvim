@@ -282,29 +282,30 @@ M.hijack_netrw = function()
     })
     vim.api.nvim_create_autocmd("BufEnter", {
         callback = function(args)
+            if not vim.api.nvim_buf_is_valid(args.buf) then
+                return
+            end
+            local bufname = vim.api.nvim_buf_get_name(args.buf)
+            if vim.fn.isdirectory(bufname) == 0 then
+                return
+            end
+            if bufname == vim.g.netrw_bufname then
+                return
+            end
+            vim.g.netrw_bufname = bufname
+            vim.api.nvim_set_option_value("bufhidden", "wipe", {
+                buf = args.buf,
+            })
             vim.schedule(function()
-                local bufname = vim.api.nvim_buf_get_name(args.buf)
-                if vim.fn.isdirectory(bufname) == 0 then
-                    return
+                if vim.api.nvim_buf_is_valid(args.buf) then
+                    pcall(vim.api.nvim_buf_delete, args.buf, {
+                        force = true,
+                    })
                 end
-                if bufname == vim.g.netrw_bufname then
-                    return
-                end
-                vim.g.netrw_bufname = bufname
-                vim.api.nvim_set_option_value("bufhidden", "wipe", {
-                    buf = args.buf,
-                })
-                vim.schedule(function()
-                    if vim.api.nvim_buf_is_valid(args.buf) then
-                        pcall(vim.api.nvim_buf_delete, args.buf, {
-                            force = true,
-                        })
-                    end
-                    local opts = {
-                        cwd = bufname,
-                    }
-                    M.browse(opts)
-                end)
+                local opts = {
+                    cwd = bufname,
+                }
+                M.browse(opts)
             end)
         end,
         group = vim.api.nvim_create_augroup("FzfLuaFileBrowser", {
