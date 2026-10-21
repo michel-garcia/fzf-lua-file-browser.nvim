@@ -114,6 +114,8 @@ M.defaults = {
                     if stat then
                         return
                     end
+                    local parent = vim.fs.dirname(vim.fs.normalize(target))
+                    vim.fn.mkdir(parent, "p")
                     if string.sub(target, -1) == "/" then
                         local mode = tonumber("755", 8)
                         vim.uv.fs_mkdir(target, mode)
