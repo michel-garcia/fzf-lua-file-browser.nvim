@@ -8,19 +8,24 @@ local M = {}
 M.defaults = {
     actions = {
         open = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local item = table.remove(selected)
                 local file = path.entry_to_file(item)
-                file.path = path.join({ o.cwd, file.path })
+                file.path = path.join({ opts.cwd, file.path })
                 local stat = vim.uv.fs_stat(file.path)
                 if not stat then
                     return
                 end
                 if stat.type == "directory" then
-                    o.cwd = file.path
+                    M.browse({
+                        clipboard = opts.clipboard,
+                        cwd = file.path,
+                        focused = opts.focused,
+                        hidden = opts.hidden,
+                    })
                     return
                 end
                 local win = vim.api.nvim_get_current_win()
@@ -28,21 +33,20 @@ M.defaults = {
                 vim.schedule(function()
                     fzf.actions.file_edit({
                         file.path,
-                    }, o)
+                    }, opts)
                 end)
             end,
             field_index = "{}",
-            postfix = "clear-query",
             reload = true,
         },
         split = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local item = table.remove(selected)
                 local file = path.entry_to_file(item)
-                file.path = path.join({ o.cwd, file.path })
+                file.path = path.join({ opts.cwd, file.path })
                 local stat = vim.uv.fs_stat(file.path)
                 if not stat or stat.type == "directory" then
                     return
@@ -52,20 +56,20 @@ M.defaults = {
                 vim.schedule(function()
                     fzf.actions.file_split({
                         file.path,
-                    }, o)
+                    }, opts)
                 end)
             end,
             field_index = "{}",
             reload = true,
         },
         split_vertical = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local item = table.remove(selected)
                 local file = path.entry_to_file(item)
-                file.path = path.join({ o.cwd, file.path })
+                file.path = path.join({ opts.cwd, file.path })
                 local stat = vim.uv.fs_stat(file.path)
                 if not stat or stat.type == "directory" then
                     return
@@ -75,37 +79,50 @@ M.defaults = {
                 vim.schedule(function()
                     fzf.actions.file_vsplit({
                         file.path,
-                    }, o)
+                    }, opts)
                 end)
             end,
             field_index = "{}",
             reload = true,
         },
         go_to_parent = {
-            fn = function(_, o)
-                o.cwd = path.parent(o.cwd)
+            fn = function(_, opts)
+                M.browse({
+                    clipboard = opts.clipboard,
+                    cwd = path.parent(opts.cwd),
+                    focused = opts.focused,
+                    hidden = opts.hidden,
+                })
             end,
-            postfix = "clear-query",
             reload = true,
         },
         go_to_cwd = {
-            fn = function(_, o)
-                o.cwd = vim.uv.cwd()
+            fn = function(_, opts)
+                M.browse({
+                    clipboard = opts.clipboard,
+                    cwd = vim.uv.cwd(),
+                    focused = opts.focused,
+                    hidden = opts.hidden,
+                })
             end,
-            postfix = "clear-query",
             reload = true,
         },
         toggle_hidden = {
-            fn = function(_, o)
-                o.hidden = not o.hidden
+            fn = function(_, opts)
+                M.browse({
+                    clipboard = opts.clipboard,
+                    cwd = opts.cwd,
+                    focused = opts.focused,
+                    hidden = not opts.hidden,
+                })
             end,
             reload = true,
         },
         create = {
-            fn = function(_, o)
+            fn = function(_, opts)
                 vim.ui.input({
                     prompt = "New path: ",
-                    default = path.add_trailing(o.cwd),
+                    default = path.add_trailing(opts.cwd),
                 }, function(target)
                     if not target then
                         return
@@ -119,24 +136,30 @@ M.defaults = {
                     if string.sub(target, -1) == "/" then
                         local mode = tonumber("755", 8)
                         vim.uv.fs_mkdir(target, mode)
-                        return
+                    else
+                        local mode = tonumber("644", 8)
+                        local handle = vim.uv.fs_open(target, "w", mode)
+                        vim.uv.fs_close(handle)
                     end
-                    local mode = tonumber("644", 8)
-                    local handle = vim.uv.fs_open(target, "w", mode)
-                    vim.uv.fs_close(handle)
+                    opts.focused[opts.cwd] = vim.fn.fnamemodify(vim.fs.normalize(target), ":t")
+                    M.browse({
+                        clipboard = opts.clipboard,
+                        cwd = opts.cwd,
+                        focused = opts.focused,
+                        hidden = opts.hidden,
+                    })
                 end)
             end,
-            postfix = "clear-query",
             reload = true,
         },
         rename = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local item = table.remove(selected)
                 local file = path.entry_to_file(item)
-                file.path = path.join({ o.cwd, file.path })
+                file.path = path.join({ opts.cwd, file.path })
                 vim.ui.input({
                     prompt = "New path: ",
                     default = file.path,
@@ -156,14 +179,20 @@ M.defaults = {
                             force = true,
                         })
                     end
+                    opts.focused[opts.cwd] = vim.fn.fnamemodify(vim.fs.normalize(target), ":t")
+                    M.browse({
+                        clipboard = opts.clipboard,
+                        cwd = opts.cwd,
+                        focused = opts.focused,
+                        hidden = opts.hidden,
+                    })
                 end)
             end,
             field_index = "{}",
-            postfix = "clear-query",
             reload = true,
         },
         delete = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
@@ -175,7 +204,7 @@ M.defaults = {
                     end
                     for _, item in ipairs(selected) do
                         local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
+                        file.path = path.join({ opts.cwd, file.path })
                         local stat = vim.uv.fs_stat(file.path)
                         if not stat then
                             return
@@ -197,60 +226,76 @@ M.defaults = {
                             })
                         end
                     end
+                    opts.focused[opts.cwd] = nil
+                    M.browse({
+                        clipboard = opts.clipboard,
+                        cwd = opts.cwd,
+                        focused = opts.focused,
+                        hidden = opts.hidden,
+                    })
                 end)
             end,
-            postfix = "clear-query",
             reload = true,
         },
         copy = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
                 vim.notify(msg)
-                o.clipboard = {
-                    action = "copy",
-                    files = vim.tbl_map(function(item)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        return file
-                    end, selected),
-                }
+                M.browse({
+                    clipboard = {
+                        action = "copy",
+                        files = vim.tbl_map(function(item)
+                            local file = path.entry_to_file(item)
+                            file.path = path.join({ opts.cwd, file.path })
+                            return file
+                        end, selected),
+                    },
+                    cwd = opts.cwd,
+                    focused = opts.focused,
+                    hidden = opts.hidden,
+                })
             end,
             reload = true,
         },
         cut = {
-            fn = function(selected, o)
+            fn = function(selected, opts)
                 if vim.tbl_isempty(selected) then
                     return
                 end
                 local msg = string.format("Clipboard updated with %s file(s)", vim.tbl_count(selected))
                 vim.notify(msg)
-                o.clipboard = {
-                    action = "cut",
-                    files = vim.tbl_map(function(item)
-                        local file = path.entry_to_file(item)
-                        file.path = path.join({ o.cwd, file.path })
-                        return file
-                    end, selected),
-                }
+                M.browse({
+                    clipboard = {
+                        action = "cut",
+                        files = vim.tbl_map(function(item)
+                            local file = path.entry_to_file(item)
+                            file.path = path.join({ opts.cwd, file.path })
+                            return file
+                        end, selected),
+                    },
+                    cwd = opts.cwd,
+                    focused = opts.focused,
+                    hidden = opts.hidden,
+                })
             end,
             reload = true,
         },
         paste = {
-            fn = function(_, o)
-                if vim.isnil(o.clipboard) or vim.tbl_isempty(o.clipboard.files) then
+            fn = function(_, opts)
+                if vim.isnil(opts.clipboard) or vim.tbl_isempty(opts.clipboard.files) then
                     return
                 end
-                for _, file in ipairs(o.clipboard.files) do
+                for _, file in ipairs(opts.clipboard.files) do
                     local stat = vim.uv.fs_stat(file.path)
                     if stat then
-                        local target = path.join({ o.cwd, path.basename(file.path) })
-                        if o.clipboard.action == "copy" then
+                        local target = path.join({ opts.cwd, path.basename(file.path) })
+                        if opts.clipboard.action == "copy" then
                             vim.uv.fs_copyfile(file.path, target)
                         end
-                        if o.clipboard.action == "cut" then
+                        if opts.clipboard.action == "cut" then
                             vim.uv.fs_rename(file.path, target)
                         end
                         local bufnr = vim.fn.bufnr(file.path)
@@ -266,7 +311,12 @@ M.defaults = {
                         end
                     end
                 end
-                o.clipboard = nil
+                M.browse({
+                    clipboard = nil,
+                    cwd = opts.cwd,
+                    focused = opts.focused,
+                    hidden = opts.hidden,
+                })
             end,
             reload = true,
         },
@@ -304,10 +354,9 @@ M.hijack_netrw = function()
                         force = true,
                     })
                 end
-                local opts = {
+                M.browse({
                     cwd = bufname,
-                }
-                M.browse(opts)
+                })
             end)
         end,
         group = vim.api.nvim_create_augroup("FzfLuaFileBrowser", {
@@ -361,28 +410,42 @@ M.browse = function(opts)
     if not opts then
         return
     end
-    opts.cwd = opts.cwd or vim.fn.expand("%:p:h") or vim.uv.cwd()
-    local contents = function(callback)
-        local items = vim.fs.dir(opts.cwd)
-        local files = vim.iter(items)
-            :map(function(name, type)
-                local file = {
-                    name = name,
-                    path = path.join({ opts.cwd, name }),
-                    type = type,
-                }
-                return file
-            end)
-            :filter(function(file)
-                return opts.hidden or file.name:sub(1, 1) ~= "."
-            end)
-            :totable()
-        table.sort(files, function(a, b)
-            if a.type ~= b.type then
-                return a.type == "directory"
-            end
-            return a.name < b.name
+    opts.focused = opts.focused or {}
+    local cwd = opts.cwd or vim.fn.expand("%:p:h") or vim.uv.cwd()
+    if not opts.cwd then
+        opts.focused[cwd] = vim.fn.expand("%:t:h")
+    end
+    opts.cwd = cwd
+    local items = vim.fs.dir(opts.cwd)
+    local files = vim.iter(items)
+        :map(function(name, type)
+            local file = {
+                name = name,
+                path = path.join({ opts.cwd, name }),
+                type = type,
+            }
+            return file
         end)
+        :filter(function(file)
+            return opts.hidden or file.name:sub(1, 1) ~= "."
+        end)
+        :totable()
+    table.sort(files, function(a, b)
+        if a.type ~= b.type then
+            return a.type == "directory"
+        end
+        return a.name < b.name
+    end)
+    for i, file in ipairs(files) do
+        if opts.focused[opts.cwd] == file.name then
+            opts.fzf_args = table.concat({
+                opts.fzf_args,
+                string.format("--bind start:pos\\(%s\\)", i),
+            }, " ")
+            break
+        end
+    end
+    local contents = function(callback)
         for _, file in ipairs(files) do
             local parts = { file.name }
             if opts.file_icons then
